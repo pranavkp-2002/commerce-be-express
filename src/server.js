@@ -46,7 +46,6 @@ app.use("/api/categroy", categroyRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/", orderRoutes);
 
-
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     success: true,
@@ -54,6 +53,12 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+app.get("/api/db-status", (req, res) => {
+  res.json({
+    databaseState: mongoose.connection.readyState,
+    connected: mongoose.connection.readyState === 1,
+  });
+});
 // Must be registered after all routes
 app.use(notFound);
 app.use(errorHandler);

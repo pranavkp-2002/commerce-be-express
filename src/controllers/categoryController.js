@@ -4,15 +4,7 @@ const AppError = require("../utils/AppError");
 const createCategory = async (req, res) => {
   const { name, description } = req.body;
 
-  if (!name || !name.trim()) {
-    throw new AppError("Category name is required", 400);
-  }
-
-  const normalizedName = name.trim();
-
-  const isExistingCat = await Category.findOne({
-    name: normalizedName,
-  });
+  const isExistingCat = await Category.findOne({ name });
   if (isExistingCat) {
     throw new AppError("Category already avilable", 400);
   }
@@ -58,9 +50,6 @@ const updateCategory = async (req, res) => {
   const { id } = req.params;
 
   const { name, description } = req.body;
-  if (!name) {
-    throw new AppError("Name is requied", 404);
-  }
 
   const category = await Category.findById(id);
   if (!category) {
@@ -68,11 +57,7 @@ const updateCategory = async (req, res) => {
   }
 
   if (name !== undefined) {
-    if (!name.trim()) {
-      throw new AppError("Category name cannot be empty", 400);
-    }
-
-    category.name = name.trim();
+    category.name = name;
   }
 
   if (description !== undefined) {

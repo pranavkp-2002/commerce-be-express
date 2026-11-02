@@ -6,10 +6,6 @@ const AppError = require("../utils/AppError");
 const registerUser = async (req, res) => {
   const { name, email, password } = req.body;
 
-  if (!name || !email || !password) {
-    throw new AppError("Enter name, email, password", 400);
-  }
-
   const userData = await User.findOne({ email });
   if (userData) {
     throw new AppError("User already registed", 400);
@@ -33,10 +29,6 @@ const registerUser = async (req, res) => {
 
 const loginUser = async (req, res) => {
   const { email, password } = req.body;
-
-  if (!email || !password) {
-    throw new AppError("Enter email, password", 400);
-  }
 
   const userData = await User.findOne({ email });
 
@@ -83,11 +75,7 @@ const updateUser = async (req, res) => {
     user.name = name;
   }
 
-  if (oldPassword || newPassword) {
-    if (!oldPassword || !newPassword) {
-      throw new AppError("Old password and new password are required", 400);
-    }
-
+  if (newPassword) {
     const isMatch = await bcrypt.compare(oldPassword, user.password);
 
     if (!isMatch) {

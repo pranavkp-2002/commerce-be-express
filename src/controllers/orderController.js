@@ -8,20 +8,6 @@ const checkout = async (req, res) => {
   const { shippingAddress } = req.body;
   const userId = req.user.userId;
 
-  // 1. Validate shipping address
-  const requiredFields = ["street", "city", "state", "postalCode", "country"];
-
-  if (
-    !shippingAddress ||
-    requiredFields.some(
-      (field) =>
-        typeof shippingAddress[field] !== "string" ||
-        !shippingAddress[field].trim(),
-    )
-  ) {
-    throw new AppError("Please provide a complete shipping address", 400);
-  }
-
   const session = await mongoose.startSession();
   let createdOrder;
 
@@ -144,11 +130,6 @@ const getOrderDetails = async (req, res) => {
   const userId = req.user.userId;
   const orderId = req.params.orderId;
 
-  // Validate order ID
-  if (!mongoose.isValidObjectId(orderId)) {
-    throw new AppError("Invalid order ID", 400);
-  }
-
   // Find order belonging to logged-in user
   const order = await Order.findOne({
     _id: orderId,
@@ -183,32 +164,14 @@ const updateOrderStatus = async (req, res) => {
   const orderId = req.params.orderId;
   const { status } = req.body;
 
-  // 1. Validate order ID
-  if (!mongoose.isValidObjectId(orderId)) {
-    throw new AppError("Invalid order ID", 400);
-  }
-
-  // 2. Validate status
-  const allowedStatuses = [
-    "pending",
-    "processing",
-    "shipped",
-    "delivered",
-    "cancelled",
-  ];
-
-  if (!allowedStatuses.includes(status)) {
-    throw new AppError("Invalid order status", 400);
-  }
-
-  // 3. Find and update order
+  // 1. Find and update order
   const updatedOrder = await Order.findByIdAndUpdate(
     orderId,
     { status },
     { new: true, runValidators: true },
   );
 
-  // 4. Check order existence
+  // 2. Check order existence
   if (!updatedOrder) {
     throw new AppError("Order not found", 404);
   }

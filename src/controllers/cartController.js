@@ -1,4 +1,3 @@
-const { mongoose } = require("mongoose");
 const Cart = require("../models/Cart");
 const Product = require("../models/Product");
 const AppError = require("../utils/AppError");
@@ -6,17 +5,7 @@ const AppError = require("../utils/AppError");
 const addToCart = async (req, res) => {
   const { product, quantity } = req.body;
 
-  // 1. Validate product ID
-  if (!mongoose.isValidObjectId(product)) {
-    throw new AppError("Invalid product ID", 400);
-  }
-
-  // 2. Validate quantity
-  if (!Number.isInteger(quantity) || quantity < 1) {
-    throw new AppError("Quantity must be a positive integer", 400);
-  }
-
-  // 3. Check whether the product exists
+  // Check whether the product exists
   const productExists = await Product.findById(product);
 
   if (!productExists) {

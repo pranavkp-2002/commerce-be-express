@@ -1,21 +1,9 @@
-const mongoose = require("mongoose");
 const Product = require("../models/Product");
 const Category = require("../models/Category");
 const AppError = require("../utils/AppError");
 
 const addProduct = async (req, res) => {
   const { name, description, price, category, stock } = req.body;
-
-  if (
-    typeof name !== "string" ||
-    !name.trim() ||
-    price === undefined ||
-    price === null ||
-    price === "" ||
-    !mongoose.isValidObjectId(category)
-  ) {
-    throw new AppError("Valid name, price, and category are required", 400);
-  }
 
   const isProduct = await Product.findOne({ name });
   if (isProduct) {
@@ -43,19 +31,8 @@ const addProduct = async (req, res) => {
 };
 
 const getAllProduct = async (req, res) => {
-  const {
-    search,
-    category,
-    minPrice,
-    maxPrice,
-    sort,
-    page = 1,
-    limit = 10,
-  } = req.query;
+  const { search, category, minPrice, maxPrice, sort, page, limit } = req.query;
 
-  if (page < 1 || limit < 5) {
-    throw new AppError("Page and limit must be greater than 0", 400);
-  }
   let query = {};
   if (search) {
     const categories = await Category.find({
@@ -73,16 +50,14 @@ const getAllProduct = async (req, res) => {
     };
   }
 
-  if (mongoose.isValidObjectId(category)) {
+  if (category) {
     query.category = category;
   }
 
-  if (minPrice < 0 && maxPrice > 0) {
-    query.price = { $gte: parseFloat(minPrice), $lte: parseFloat(maxPrice) };
-  } else if (minPrice < 0) {
-    query.price = { $gte: parseFloat(minPrice) };
-  } else if (maxPrice > 0) {
-    query.price = { $lte: parseFloat(maxPrice) };
+  if (minPrice !== undefined || maxPrice !== undefined) {
+    query.price = {};
+    if (minPrice !== undefined) query.price.$gte = minPrice;
+    if (maxPrice !== undefined) query.price.$lte = maxPrice;
   }
 
   let sortOption = {};
@@ -96,14 +71,14 @@ const getAllProduct = async (req, res) => {
   const product = await Product.find(query)
     .populate("category", "name description")
     .sort(sortOption)
-    .skip((parseInt(page) - 1) * parseInt(limit))
-    .limit(parseInt(limit));
+    .skip((page - 1) * limit)
+    .limit(limit);
 
   return res.status(200).json({
     success: true,
     message: "Product fetch successfully",
-    page: parseInt(page),
-    limit: parseInt(limit),
+    page,
+    limit,
     length: product.length,
     total: await Product.countDocuments(query),
     product,

@@ -12,6 +12,7 @@ const cartRoutes = require("../src/routes/cartRoutes");
 const orderRoutes = require("../src/routes/orderRoutes");
 const { notFound, errorHandler } = require("./middleware/errorHandler");
 const { apiLimiter } = require("./middleware/rateLimiter");
+const { default: mongoose } = require("mongoose");
 
 // Fail fast instead of signing tokens with an undefined or guessable secret
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {

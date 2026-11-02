@@ -22,6 +22,8 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
 
 const app = express();
 
+app.set("trust proxy", 1);
+
 // Set when running behind a reverse proxy so rate limiting sees the client IP,
 // e.g. TRUST_PROXY=1 for a single proxy hop
 if (process.env.TRUST_PROXY) {
@@ -66,7 +68,7 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT;
 
-app.listen(PORT, async () => {
+app.listen(PORT, "0.0.0.0", async () => {
   await connectDB();
-  console.log("server is on ", PORT);
+  console.log(`Server running on port ${PORT}`);
 });

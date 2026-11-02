@@ -3,13 +3,14 @@ const mongoose = require("mongoose");
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI, {
-      // Building indexes on every boot blocks startup and loads the primary in
-      // production; there, run `npm run db:sync-indexes` on deploy instead
-      autoIndex: process.env.NODE_ENV !== "production",
+      serverSelectionTimeoutMS: 10000,
     });
-    console.log("MongoDB connected successfully");
+
+    console.log("MongoDB connected successfully!");
   } catch (error) {
-    console.log("DB error", error);
+    console.error("MongoDB connection failed:", error.message);
+    throw error;
   }
 };
+
 module.exports = connectDB;

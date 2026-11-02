@@ -165,8 +165,7 @@ const getMyOrders = async (req, res) => {
   try {
     const userId = req.user.userId;
 
-    const orders = await Order.find({ user: userId })
-      .sort({ createdAt: -1 });
+    const orders = await Order.find({ user: userId }).sort({ createdAt: -1 });
 
     return res.status(200).json({
       success: true,
@@ -225,4 +224,90 @@ const getOrderDetails = async (req, res) => {
   }
 };
 
-module.exports = { checkout, getMyOrders, getOrderDetails };
+const getAllOrders = async (req, res) => {
+  try {
+    const orders = await Order.find()
+      .populate("user", "name email")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      message: "Orders fetched successfully",
+      count: orders.length,
+      orders,
+    });
+  } catch (error) {
+    console.error("Get orders error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
+const updateOrderStatus = async (req, res) => {
+  try {
+    const orderId = req.params.orderId;
+    const { status } = req.body;
+
+    // 1. Validate order ID
+    if (!mongoose.isValidObjectId(orderId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid order ID",
+      });
+    }
+
+    // 2. Validate status
+    const allowedStatuses = [
+      "pending",
+      "processing",
+      "shipped",
+      "delivered",
+      "cancelled",
+    ];
+
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid order status",
+      });
+    }
+
+    // 3. Find and update order
+    const updatedOrder = await Order.findByIdAndUpdate(
+      orderId,
+      { status },
+      { new: true, runValidators: true },
+    );
+
+    // 4. Check order existence
+    if (!updatedOrder) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Order status updated successfully",
+      order: updatedOrder,
+    });
+  } catch (error) {
+    console.error("Update order status error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+module.exports = {
+  checkout,
+  getMyOrders,
+  getOrderDetails,
+  getAllOrders,
+  updateOrderStatus,
+};

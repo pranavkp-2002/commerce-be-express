@@ -22,7 +22,11 @@ const updateProductSchema = createProductSchema
 
 // Query strings arrive as text, so numeric fields are coerced
 const listProductsQuery = z.object({
-  search: z.string().trim().optional(),
+  search: z
+    .string()
+    .trim()
+    .max(100, "Search cannot exceed 100 characters")
+    .optional(),
   category: objectId("category ID").optional(),
   minPrice: z.coerce.number().min(0, "minPrice cannot be negative").optional(),
   maxPrice: z.coerce.number().min(0, "maxPrice cannot be negative").optional(),

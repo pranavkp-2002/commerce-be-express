@@ -17,6 +17,13 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       required: true,
+      // Never returned by queries unless explicitly requested with .select("+password")
+      select: false,
+    },
+    // Tokens issued before this time are rejected (see authMiddleware)
+    passwordChangedAt: {
+      type: Date,
+      select: false,
     },
     role: {
       type: String,
@@ -26,6 +33,15 @@ const userSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    toJSON: {
+      // Defense in depth: strip secrets even if a query selected them
+      transform: (doc, ret) => {
+        delete ret.password;
+        delete ret.passwordChangedAt;
+        delete ret.__v;
+        return ret;
+      },
+    },
   },
 );
 

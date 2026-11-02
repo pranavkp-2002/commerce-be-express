@@ -27,19 +27,29 @@ const registerUser = async (req, res) => {
   });
 };
 
+// Compared against when the email is unknown so both failure paths take the
+// same time and don't reveal which emails are registered
+const DUMMY_HASH = bcrypt.hashSync("dummy-password", 12);
+
 const loginUser = async (req, res) => {
   const { email, password } = req.body;
 
-  const userData = await User.findOne({ email });
+  const userData = await User.findOne({ email }).select("+password");
 
-  if (!userData || !(await bcrypt.compare(password, userData.password))) {
-    throw new AppError("email or password is wrong", 400);
+  const isMatch = await bcrypt.compare(
+    password,
+    userData ? userData.password : DUMMY_HASH,
+  );
+
+  if (!userData || !isMatch) {
+    throw new AppError("email or password is wrong", 401);
   }
 
   const token = jwt.sign(
     { userId: userData._id, role: userData.role },
     process.env.JWT_SECRET,
     {
+      algorithm: "HS256",
       expiresIn: process.env.JWT_EXPIRES_IN || "5h",
     },
   );
@@ -48,12 +58,21 @@ const loginUser = async (req, res) => {
     success: true,
     message: "Login succesfully",
     token,
-    data: userData,
+    data: {
+      id: userData._id,
+      name: userData.name,
+      email: userData.email,
+      role: userData.role,
+    },
   });
 };
 
 const profileUser = async (req, res) => {
   const user = await User.findById(req.user.userId);
+
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
 
   return res.status(200).json({
     success: true,
@@ -65,7 +84,7 @@ const profileUser = async (req, res) => {
 const updateUser = async (req, res) => {
   const { name, newPassword, oldPassword } = req.body;
 
-  const user = await User.findById(req.user.userId);
+  const user = await User.findById(req.user.userId).select("+password");
 
   if (!user) {
     throw new AppError("User not found", 404);
@@ -83,6 +102,8 @@ const updateUser = async (req, res) => {
     }
 
     user.password = await bcrypt.hash(newPassword, 12);
+    // Revokes all existing tokens; the client must log in again
+    user.passwordChangedAt = new Date();
   }
 
   await user.save();

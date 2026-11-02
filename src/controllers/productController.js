@@ -2,6 +2,9 @@ const Product = require("../models/Product");
 const Category = require("../models/Category");
 const AppError = require("../utils/AppError");
 
+// Treat user input as literal text in $regex (prevents ReDoS / pattern injection)
+const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 const addProduct = async (req, res) => {
   const { name, description, price, category, stock } = req.body;
 
@@ -35,16 +38,16 @@ const getAllProduct = async (req, res) => {
 
   let query = {};
   if (search) {
+    const pattern = escapeRegex(search);
     const categories = await Category.find({
-      name: { $regex: search, $options: "i" },
+      name: { $regex: pattern, $options: "i" },
     }).select("_id");
 
     const categoryIds = categories.map((cat) => cat._id);
-    console.log("categoryIds", categoryIds);
 
     query = {
       $or: [
-        { name: { $regex: search, $options: "i" } },
+        { name: { $regex: pattern, $options: "i" } },
         { category: { $in: categoryIds } },
       ],
     };

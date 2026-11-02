@@ -161,4 +161,68 @@ const checkout = async (req, res) => {
   }
 };
 
-module.exports = { checkout };
+const getMyOrders = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const orders = await Order.find({ user: userId })
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      message: "Orders fetched successfully",
+      count: orders.length,
+      orders,
+    });
+  } catch (error) {
+    console.error("Get orders error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
+const getOrderDetails = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const orderId = req.params.orderId;
+
+    // Validate order ID
+    if (!mongoose.isValidObjectId(orderId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid order ID",
+      });
+    }
+
+    // Find order belonging to logged-in user
+    const order = await Order.findOne({
+      _id: orderId,
+      user: userId,
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Order fetched successfully",
+      order,
+    });
+  } catch (error) {
+    console.error("Get order details error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
+  }
+};
+
+module.exports = { checkout, getMyOrders, getOrderDetails };

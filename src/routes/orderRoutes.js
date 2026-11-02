@@ -9,6 +9,7 @@ const {
   updateOrderStatus,
 } = require("../controllers/orderController");
 const authorizeRole = require("../middleware/authorizeRole");
+const { paginationQuery } = require("../validators/common");
 const {
   checkoutSchema,
   orderIdParam,
@@ -22,7 +23,12 @@ router.post(
   validate({ body: checkoutSchema }),
   checkout,
 );
-router.get("/order", authMiddleware, getMyOrders);
+router.get(
+  "/order",
+  authMiddleware,
+  validate({ query: paginationQuery }),
+  getMyOrders,
+);
 router.get(
   "/order/:orderId",
   authMiddleware,
@@ -33,6 +39,7 @@ router.get(
   "/order/admin/all",
   authMiddleware,
   authorizeRole("admin"),
+  validate({ query: paginationQuery }),
   getAllOrders,
 );
 

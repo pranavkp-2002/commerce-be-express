@@ -69,7 +69,6 @@ const orderSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true,
     },
     items: {
       type: [orderItemSchema],
@@ -98,6 +97,12 @@ const orderSchema = new mongoose.Schema(
     timestamps: true,
   },
 );
+
+// getMyOrders filters by user and sorts newest first; the user prefix also
+// serves getOrderDetails' { _id, user } lookup and replaces a plain user index
+orderSchema.index({ user: 1, createdAt: -1 });
+// Admin listing sorts all orders newest first
+orderSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model("Order", orderSchema);
 module.exports.ORDER_STATUSES = ORDER_STATUSES;

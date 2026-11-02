@@ -115,13 +115,25 @@ const checkout = async (req, res) => {
 
 const getMyOrders = async (req, res) => {
   const userId = req.user.userId;
+  const { page, limit } = req.query;
 
-  const orders = await Order.find({ user: userId }).sort({ createdAt: -1 });
+  // Served by the { user: 1, createdAt: -1 } index without an in-memory sort
+  const [orders, total] = await Promise.all([
+    Order.find({ user: userId })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean(),
+    Order.countDocuments({ user: userId }),
+  ]);
 
   return res.status(200).json({
     success: true,
     message: "Orders fetched successfully",
+    page,
+    limit,
     count: orders.length,
+    total,
     orders,
   });
 };
@@ -134,7 +146,7 @@ const getOrderDetails = async (req, res) => {
   const order = await Order.findOne({
     _id: orderId,
     user: userId,
-  });
+  }).lean();
 
   if (!order) {
     throw new AppError("Order not found", 404);
@@ -148,14 +160,25 @@ const getOrderDetails = async (req, res) => {
 };
 
 const getAllOrders = async (req, res) => {
-  const orders = await Order.find()
-    .populate("user", "name email")
-    .sort({ createdAt: -1 });
+  const { page, limit } = req.query;
+
+  const [orders, total] = await Promise.all([
+    Order.find()
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .populate("user", "name email")
+      .lean(),
+    Order.estimatedDocumentCount(),
+  ]);
 
   return res.status(200).json({
     success: true,
     message: "Orders fetched successfully",
+    page,
+    limit,
     count: orders.length,
+    total,
     orders,
   });
 };

@@ -32,4 +32,14 @@ const productSchema = new mongoose.Schema(
   },
 );
 
+// Listing: GET /products filters by category and/or price range and sorts by
+// price or createdAt. Category-first compounds serve the filtered + sorted
+// case; the single-field ones serve sorting across all categories.
+productSchema.index({ category: 1, price: 1 });
+productSchema.index({ category: 1, createdAt: -1 });
+productSchema.index({ price: 1 });
+productSchema.index({ createdAt: -1 });
+// Duplicate-name check in addProduct
+productSchema.index({ name: 1 });
+
 module.exports = mongoose.model("Product", productSchema);

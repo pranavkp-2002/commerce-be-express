@@ -8,12 +8,12 @@ const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const addProduct = async (req, res) => {
   const { name, description, price, category, stock } = req.body;
 
-  const isProduct = await Product.findOne({ name });
+  const isProduct = await Product.exists({ name });
   if (isProduct) {
     throw new AppError("Product already added with same name", 404);
   }
 
-  const existingCategory = await Category.findById(category);
+  const existingCategory = await Category.exists({ _id: category });
 
   if (!existingCategory) {
     throw new AppError("Category not found", 404);
@@ -39,11 +39,9 @@ const getAllProduct = async (req, res) => {
   let query = {};
   if (search) {
     const pattern = escapeRegex(search);
-    const categories = await Category.find({
+    const categoryIds = await Category.distinct("_id", {
       name: { $regex: pattern, $options: "i" },
-    }).select("_id");
-
-    const categoryIds = categories.map((cat) => cat._id);
+    });
 
     query = {
       $or: [
@@ -71,11 +69,15 @@ const getAllProduct = async (req, res) => {
   } else if (sort === "newest") {
     sortOption = { createdAt: -1 };
   }
-  const product = await Product.find(query)
-    .populate("category", "name description")
-    .sort(sortOption)
-    .skip((page - 1) * limit)
-    .limit(limit);
+  const [product, total] = await Promise.all([
+    Product.find(query)
+      .sort(sortOption)
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .populate("category", "name description")
+      .lean(),
+    Product.countDocuments(query),
+  ]);
 
   return res.status(200).json({
     success: true,
@@ -83,14 +85,14 @@ const getAllProduct = async (req, res) => {
     page,
     limit,
     length: product.length,
-    total: await Product.countDocuments(query),
+    total,
     product,
   });
 };
 
 const getProductyById = async (req, res) => {
   const { id } = req.params;
-  const product = await Product.findById(id);
+  const product = await Product.findById(id).lean();
   if (!product) {
     throw new AppError("Product not found", 404);
   }

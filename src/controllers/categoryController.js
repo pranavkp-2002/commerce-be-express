@@ -4,7 +4,7 @@ const AppError = require("../utils/AppError");
 const createCategory = async (req, res) => {
   const { name, description } = req.body;
 
-  const isExistingCat = await Category.findOne({ name });
+  const isExistingCat = await Category.exists({ name });
   if (isExistingCat) {
     throw new AppError("Category already avilable", 400);
   }
@@ -22,7 +22,7 @@ const createCategory = async (req, res) => {
 };
 
 const getAllCategory = async (req, res) => {
-  const categroy = await Category.find();
+  const categroy = await Category.find().lean();
 
   return res.status(200).json({
     success: true,
@@ -34,7 +34,7 @@ const getAllCategory = async (req, res) => {
 
 const getCategoryById = async (req, res) => {
   const { id } = req.params;
-  const category = await Category.findById(id);
+  const category = await Category.findById(id).lean();
   if (!category) {
     throw new AppError("Category not found", 404);
   }

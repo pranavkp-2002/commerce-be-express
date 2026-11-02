@@ -6,7 +6,7 @@ const addToCart = async (req, res) => {
   const { product, quantity } = req.body;
 
   // Check whether the product exists
-  const productExists = await Product.findById(product);
+  const productExists = await Product.findById(product).select("stock").lean();
 
   if (!productExists) {
     throw new AppError("Product not found", 404);
@@ -69,7 +69,9 @@ const updateCart = async (req, res) => {
   const productId = req.params.id;
   const { quantity } = req.body;
 
-  const productExists = await Product.findById(productId);
+  const productExists = await Product.findById(productId)
+    .select("stock")
+    .lean();
 
   if (!productExists) {
     throw new AppError("Product no longer exists", 404);
@@ -130,10 +132,9 @@ const deleteCart = async (req, res) => {
 const getCart = async (req, res) => {
   const user = req.user.userId;
 
-  const cartData = await Cart.findOne({ user: user }).populate(
-    "items.product",
-    "name price",
-  );
+  const cartData = await Cart.findOne({ user: user })
+    .populate("items.product", "name price")
+    .lean();
 
   if (!cartData) {
     return res.status(200).json({

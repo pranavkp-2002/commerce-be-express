@@ -6,7 +6,7 @@ const AppError = require("../utils/AppError");
 const registerUser = async (req, res) => {
   const { name, email, password } = req.body;
 
-  const userData = await User.findOne({ email });
+  const userData = await User.exists({ email });
   if (userData) {
     throw new AppError("User already registed", 400);
   }

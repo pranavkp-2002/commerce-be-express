@@ -1,4 +1,4 @@
-const { z, objectId, requiredString } = require("./common");
+const { z, objectId, requiredString, pagination } = require("./common");
 
 const createProductSchema = z.object({
   name: requiredString("Name"),
@@ -31,13 +31,7 @@ const listProductsQuery = z.object({
   minPrice: z.coerce.number().min(0, "minPrice cannot be negative").optional(),
   maxPrice: z.coerce.number().min(0, "maxPrice cannot be negative").optional(),
   sort: z.enum(["price_asc", "price_desc", "newest"]).optional(),
-  page: z.coerce.number().int().min(1, "Page must be at least 1").default(1),
-  limit: z.coerce
-    .number()
-    .int()
-    .min(1, "Limit must be at least 1")
-    .max(100, "Limit cannot exceed 100")
-    .default(10),
+  ...pagination,
 });
 
 module.exports = {

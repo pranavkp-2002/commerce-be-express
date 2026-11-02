@@ -6,6 +6,7 @@ const productRoutes = require("../src/routes/productRoutes");
 const categroyRoutes = require("../src/routes/categroyRoutes");
 const cartRoutes = require("../src/routes/cartRoutes");
 const orderRoutes = require("../src/routes/orderRoutes");
+const { notFound, errorHandler } = require("./middleware/errorHandler");
 
 require("dotenv").config();
 
@@ -26,6 +27,10 @@ app.get("/api/health", (req, res) => {
     message: "Server is ON",
   });
 });
+
+// Must be registered after all routes
+app.use(notFound);
+app.use(errorHandler);
 
 const PORT = process.env.PORT;
 

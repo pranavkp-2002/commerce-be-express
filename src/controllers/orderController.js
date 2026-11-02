@@ -2,34 +2,32 @@ const mongoose = require("mongoose");
 const Cart = require("../models/Cart");
 const Order = require("../models/Order");
 const Product = require("../models/Product");
+const AppError = require("../utils/AppError");
 
 const checkout = async (req, res) => {
+  const { shippingAddress } = req.body;
+  const userId = req.user.userId;
+
+  // 1. Validate shipping address
+  const requiredFields = ["street", "city", "state", "postalCode", "country"];
+
+  if (
+    !shippingAddress ||
+    requiredFields.some(
+      (field) =>
+        typeof shippingAddress[field] !== "string" ||
+        !shippingAddress[field].trim(),
+    )
+  ) {
+    throw new AppError("Please provide a complete shipping address", 400);
+  }
+
   const session = await mongoose.startSession();
+  let createdOrder;
 
   try {
-    const { shippingAddress } = req.body;
-    const userId = req.user.userId;
-
-    // 1. Validate shipping address
-    const requiredFields = ["street", "city", "state", "postalCode", "country"];
-
-    if (
-      !shippingAddress ||
-      requiredFields.some(
-        (field) =>
-          typeof shippingAddress[field] !== "string" ||
-          !shippingAddress[field].trim(),
-      )
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Please provide a complete shipping address",
-      });
-    }
-
-    let createdOrder;
-
-    // 2. Execute all checkout operations in a transaction
+    // 2. Execute all checkout operations in a transaction.
+    // Any AppError thrown here aborts the transaction and reaches errorHandler.
     await session.withTransaction(async () => {
       const cartData = await Cart.findOne({ user: userId })
         .session(session)
@@ -39,11 +37,11 @@ const checkout = async (req, res) => {
         });
 
       if (!cartData) {
-        throw new Error("CART_NOT_FOUND");
+        throw new AppError("Cart not found", 404);
       }
 
       if (cartData.items.length === 0) {
-        throw new Error("CART_EMPTY");
+        throw new AppError("Cart is empty", 400);
       }
 
       const orderItems = [];
@@ -53,15 +51,15 @@ const checkout = async (req, res) => {
         const product = item.product;
 
         if (!product) {
-          throw new Error("PRODUCT_NOT_FOUND");
+          throw new AppError("A product in your cart no longer exists", 400);
         }
 
         if (!Number.isInteger(item.quantity) || item.quantity < 1) {
-          throw new Error("INVALID_QUANTITY");
+          throw new AppError("Invalid quantity in cart", 400);
         }
 
         if (item.quantity > product.stock) {
-          throw new Error(`INSUFFICIENT_STOCK:${product.name}`);
+          throw new AppError(`Insufficient stock for ${product.name}`, 400);
         }
 
         orderItems.push({
@@ -89,7 +87,7 @@ const checkout = async (req, res) => {
         );
 
         if (!updatedProduct) {
-          throw new Error(`INSUFFICIENT_STOCK:${item.name}`);
+          throw new AppError(`Insufficient stock for ${item.name}`, 400);
         }
       }
 
@@ -118,191 +116,108 @@ const checkout = async (req, res) => {
       cartData.items = [];
       await cartData.save({ session });
     });
-
-    return res.status(201).json({
-      success: true,
-      message: "Order placed successfully",
-      order: createdOrder,
-    });
-  } catch (error) {
-    console.error("Checkout error:", error);
-
-    if (error.message === "CART_NOT_FOUND") {
-      return res.status(404).json({
-        success: false,
-        message: "Cart not found",
-      });
-    }
-
-    if (
-      error.message === "CART_EMPTY" ||
-      error.message === "PRODUCT_NOT_FOUND" ||
-      error.message === "INVALID_QUANTITY"
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: error.message,
-      });
-    }
-
-    if (error.message.startsWith("INSUFFICIENT_STOCK:")) {
-      return res.status(400).json({
-        success: false,
-        message: `Insufficient stock for ${error.message.split(":")[1]}`,
-      });
-    }
-
-    return res.status(500).json({
-      success: false,
-      message: "Something went wrong during checkout",
-    });
   } finally {
     await session.endSession();
   }
+
+  return res.status(201).json({
+    success: true,
+    message: "Order placed successfully",
+    order: createdOrder,
+  });
 };
 
 const getMyOrders = async (req, res) => {
-  try {
-    const userId = req.user.userId;
+  const userId = req.user.userId;
 
-    const orders = await Order.find({ user: userId }).sort({ createdAt: -1 });
+  const orders = await Order.find({ user: userId }).sort({ createdAt: -1 });
 
-    return res.status(200).json({
-      success: true,
-      message: "Orders fetched successfully",
-      count: orders.length,
-      orders,
-    });
-  } catch (error) {
-    console.error("Get orders error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Something went wrong",
-    });
-  }
+  return res.status(200).json({
+    success: true,
+    message: "Orders fetched successfully",
+    count: orders.length,
+    orders,
+  });
 };
 
 const getOrderDetails = async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const orderId = req.params.orderId;
+  const userId = req.user.userId;
+  const orderId = req.params.orderId;
 
-    // Validate order ID
-    if (!mongoose.isValidObjectId(orderId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid order ID",
-      });
-    }
-
-    // Find order belonging to logged-in user
-    const order = await Order.findOne({
-      _id: orderId,
-      user: userId,
-    });
-
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: "Order fetched successfully",
-      order,
-    });
-  } catch (error) {
-    console.error("Get order details error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Something went wrong",
-    });
+  // Validate order ID
+  if (!mongoose.isValidObjectId(orderId)) {
+    throw new AppError("Invalid order ID", 400);
   }
+
+  // Find order belonging to logged-in user
+  const order = await Order.findOne({
+    _id: orderId,
+    user: userId,
+  });
+
+  if (!order) {
+    throw new AppError("Order not found", 404);
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: "Order fetched successfully",
+    order,
+  });
 };
 
 const getAllOrders = async (req, res) => {
-  try {
-    const orders = await Order.find()
-      .populate("user", "name email")
-      .sort({ createdAt: -1 });
+  const orders = await Order.find()
+    .populate("user", "name email")
+    .sort({ createdAt: -1 });
 
-    return res.status(200).json({
-      success: true,
-      message: "Orders fetched successfully",
-      count: orders.length,
-      orders,
-    });
-  } catch (error) {
-    console.error("Get orders error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Something went wrong",
-    });
-  }
+  return res.status(200).json({
+    success: true,
+    message: "Orders fetched successfully",
+    count: orders.length,
+    orders,
+  });
 };
 
 const updateOrderStatus = async (req, res) => {
-  try {
-    const orderId = req.params.orderId;
-    const { status } = req.body;
+  const orderId = req.params.orderId;
+  const { status } = req.body;
 
-    // 1. Validate order ID
-    if (!mongoose.isValidObjectId(orderId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid order ID",
-      });
-    }
-
-    // 2. Validate status
-    const allowedStatuses = [
-      "pending",
-      "processing",
-      "shipped",
-      "delivered",
-      "cancelled",
-    ];
-
-    if (!allowedStatuses.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid order status",
-      });
-    }
-
-    // 3. Find and update order
-    const updatedOrder = await Order.findByIdAndUpdate(
-      orderId,
-      { status },
-      { new: true, runValidators: true },
-    );
-
-    // 4. Check order existence
-    if (!updatedOrder) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: "Order status updated successfully",
-      order: updatedOrder,
-    });
-  } catch (error) {
-    console.error("Update order status error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Something went wrong",
-    });
+  // 1. Validate order ID
+  if (!mongoose.isValidObjectId(orderId)) {
+    throw new AppError("Invalid order ID", 400);
   }
+
+  // 2. Validate status
+  const allowedStatuses = [
+    "pending",
+    "processing",
+    "shipped",
+    "delivered",
+    "cancelled",
+  ];
+
+  if (!allowedStatuses.includes(status)) {
+    throw new AppError("Invalid order status", 400);
+  }
+
+  // 3. Find and update order
+  const updatedOrder = await Order.findByIdAndUpdate(
+    orderId,
+    { status },
+    { new: true, runValidators: true },
+  );
+
+  // 4. Check order existence
+  if (!updatedOrder) {
+    throw new AppError("Order not found", 404);
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: "Order status updated successfully",
+    order: updatedOrder,
+  });
 };
 module.exports = {
   checkout,

@@ -1,17 +1,29 @@
 const { z, objectId, requiredString, pagination } = require("./common");
 
+// multipart/form-data sends every field as text, so numeric strings are
+// converted; JSON numbers pass through unchanged
+const formNumber = (schema) =>
+  z.preprocess(
+    (value) =>
+      typeof value === "string" && value.trim() !== "" ? Number(value) : value,
+    schema,
+  );
+
 const createProductSchema = z.object({
   name: requiredString("Name"),
   description: z.string().optional(),
-  price: z
-    .number({ error: "Price must be a number" })
-    .min(0, "Price cannot be negative"),
+  price: formNumber(
+    z
+      .number({ error: "Price must be a number" })
+      .min(0, "Price cannot be negative"),
+  ),
   category: objectId("category ID"),
-  stock: z
-    .number({ error: "Stock must be a number" })
-    .int("Stock must be an integer")
-    .min(0, "Stock cannot be negative")
-    .optional(),
+  stock: formNumber(
+    z
+      .number({ error: "Stock must be a number" })
+      .int("Stock must be an integer")
+      .min(0, "Stock cannot be negative"),
+  ).optional(),
 });
 
 const updateProductSchema = createProductSchema
@@ -34,8 +46,14 @@ const listProductsQuery = z.object({
   ...pagination,
 });
 
+const imageParams = z.object({
+  id: objectId("product ID"),
+  imageId: objectId("image ID"),
+});
+
 module.exports = {
   createProductSchema,
+  imageParams,
   updateProductSchema,
   listProductsQuery,
 };

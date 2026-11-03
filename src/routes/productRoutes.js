@@ -5,15 +5,19 @@ const {
   getProductyById,
   updateProduct,
   deleteProduct,
+  addProductImages,
+  deleteProductImage,
 } = require("../controllers/productController");
 const authorizeRole = require("../middleware/authorizeRole");
 const authMiddleware = require("../middleware/authMiddleware");
 const validate = require("../middleware/validate");
+const { uploadProductImages } = require("../middleware/upload");
 const { idParam } = require("../validators/common");
 const {
   createProductSchema,
   updateProductSchema,
   listProductsQuery,
+  imageParams,
 } = require("../validators/productValidators");
 
 const router = express.Router();
@@ -22,6 +26,7 @@ router.post(
   "",
   authMiddleware,
   authorizeRole("admin"),
+  uploadProductImages,
   validate({ body: createProductSchema }),
   addProduct,
 );
@@ -40,6 +45,21 @@ router.delete(
   authorizeRole("admin"),
   validate({ params: idParam }),
   deleteProduct,
+);
+router.post(
+  "/:id/images",
+  authMiddleware,
+  authorizeRole("admin"),
+  uploadProductImages,
+  validate({ params: idParam }),
+  addProductImages,
+);
+router.delete(
+  "/:id/images/:imageId",
+  authMiddleware,
+  authorizeRole("admin"),
+  validate({ params: imageParams }),
+  deleteProductImage,
 );
 
 module.exports = router;

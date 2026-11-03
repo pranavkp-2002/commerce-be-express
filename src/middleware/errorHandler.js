@@ -35,6 +35,16 @@ const normalizeError = (err) => {
     );
   }
 
+  // Multer: file too large, too many files, unexpected field name
+  if (err.name === "MulterError") {
+    const messages = {
+      LIMIT_FILE_SIZE: "Each image must be 5 MB or smaller",
+      LIMIT_FILE_COUNT: "Too many images uploaded",
+      LIMIT_UNEXPECTED_FILE: `Unexpected file field: ${err.field}`,
+    };
+    return new AppError(messages[err.code] || err.message, 400);
+  }
+
   if (err.name === "TokenExpiredError") {
     return new AppError("Token expired", 401);
   }

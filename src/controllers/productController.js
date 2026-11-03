@@ -1,6 +1,8 @@
 const Product = require("../models/Product");
 const Category = require("../models/Category");
 const AppError = require("../utils/AppError");
+const { uploadImages, deleteImages } = require("../config/cloudinary");
+const { MAX_IMAGES } = require("../middleware/upload");
 
 // Treat user input as literal text in $regex (prevents ReDoS / pattern injection)
 const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -18,13 +20,23 @@ const addProduct = async (req, res) => {
   if (!existingCategory) {
     throw new AppError("Category not found", 404);
   }
-  const prodcut = await Product.create({
-    name,
-    description,
-    price,
-    category,
-    stock,
-  });
+  // Upload only after all checks pass so rejected requests don't leave images
+  const images = await uploadImages(req.files);
+
+  let prodcut;
+  try {
+    prodcut = await Product.create({
+      name,
+      description,
+      price,
+      category,
+      stock,
+      images,
+    });
+  } catch (error) {
+    await deleteImages(images.map((img) => img.publicId));
+    throw error;
+  }
 
   return res.status(201).json({
     success: true,
@@ -150,9 +162,70 @@ const deleteProduct = async (req, res) => {
     throw new AppError("Product not found", 404);
   }
 
+  await deleteImages(product.images.map((img) => img.publicId));
+
   return res.status(200).json({
     success: true,
     message: "Product deleted successfully",
+  });
+};
+
+const addProductImages = async (req, res) => {
+  const { id } = req.params;
+
+  if (!req.files || req.files.length === 0) {
+    throw new AppError("Provide at least one image in the images field", 400);
+  }
+
+  const product = await Product.findById(id);
+  if (!product) {
+    throw new AppError("Product not found", 404);
+  }
+
+  if (product.images.length + req.files.length > MAX_IMAGES) {
+    throw new AppError(
+      `A product can have at most ${MAX_IMAGES} images (currently ${product.images.length})`,
+      400,
+    );
+  }
+
+  const images = await uploadImages(req.files);
+
+  // $push avoids clobbering images added by a concurrent request
+  const updated = await Product.findByIdAndUpdate(
+    id,
+    { $push: { images: { $each: images } } },
+    { new: true },
+  );
+  if (!updated) {
+    await deleteImages(images.map((img) => img.publicId));
+    throw new AppError("Product not found", 404);
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: "Images uploaded successfully",
+    product: updated,
+  });
+};
+
+const deleteProductImage = async (req, res) => {
+  const { id, imageId } = req.params;
+
+  const product = await Product.findOneAndUpdate(
+    { _id: id, "images._id": imageId },
+    { $pull: { images: { _id: imageId } } },
+  );
+  if (!product) {
+    throw new AppError("Product or image not found", 404);
+  }
+
+  const removed = product.images.find((img) => img._id.equals(imageId));
+  await deleteImages([removed.publicId]);
+
+  return res.status(200).json({
+    success: true,
+    message: "Image deleted successfully",
   });
 };
 
@@ -162,4 +235,6 @@ module.exports = {
   getProductyById,
   updateProduct,
   deleteProduct,
+  addProductImages,
+  deleteProductImage,
 };

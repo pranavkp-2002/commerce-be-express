@@ -26,6 +26,13 @@ const productSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    // Hosted on Cloudinary; publicId is needed to delete the asset
+    images: [
+      {
+        url: { type: String, required: true },
+        publicId: { type: String, required: true },
+      },
+    ],
   },
   {
     timestamps: true,
